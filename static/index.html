@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attendance Logger</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f5f7fb;
+        color: #172033;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        min-height: 40px;
+        padding: 0 14px;
+        background: #1f6feb;
+        color: white;
+        font-weight: 700;
+      }
+
+      button.secondary {
+        background: #e9edf5;
+        color: #172033;
+      }
+
+      button.danger {
+        background: #c2410c;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      input {
+        width: 100%;
+        min-height: 40px;
+        border: 1px solid #c9d3e2;
+        border-radius: 6px;
+        padding: 0 12px;
+        background: white;
+        color: #172033;
+      }
+
+      .app {
+        min-height: 100vh;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 24px;
+        border-bottom: 1px solid #dce3ef;
+        background: white;
+      }
+
+      .brand {
+        display: grid;
+        gap: 2px;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: 0;
+      }
+
+      .brand span {
+        color: #5d6b82;
+        font-size: 13px;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #3d4a5f;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #94a3b8;
+      }
+
+      .dot.live {
+        background: #16a34a;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 380px;
+        gap: 20px;
+        padding: 20px 24px 28px;
+      }
+
+      .video-panel,
+      .panel {
+        background: white;
+        border: 1px solid #dce3ef;
+        border-radius: 8px;
+      }
+
+      .video-panel {
+        overflow: hidden;
+      }
+
+      .video-wrap {
+        position: relative;
+        aspect-ratio: 16 / 10;
+        background: #111827;
+      }
+
+      .video-wrap img {
+        position: relative;
+        z-index: 1;
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .video-empty {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #cbd5e1;
+        z-index: 0;
+      }
+
+      .toolbar,
+      .panel-head,
+      .panel-body {
+        padding: 14px;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-top: 1px solid #dce3ef;
+      }
+
+      .toolbar-actions,
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .side {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-bottom: 1px solid #dce3ef;
+      }
+
+      .panel-head h2 {
+        margin: 0;
+        font-size: 16px;
+        letter-spacing: 0;
+      }
+
+      .panel-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .panel-body {
+        display: grid;
+        gap: 12px;
+      }
+
+      .message {
+        min-height: 22px;
+        color: #5d6b82;
+        font-size: 14px;
+      }
+
+      .student-list,
+      .attendance-list {
+        display: grid;
+        gap: 8px;
+        max-height: 260px;
+        overflow: auto;
+      }
+
+      .item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        min-height: 38px;
+        padding: 8px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #fbfcff;
+      }
+
+      .item strong {
+        overflow-wrap: anywhere;
+      }
+
+      .muted {
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        padding: 9px 8px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: #475569;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+          padding: 14px;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 14px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .toolbar,
+        .toolbar-actions,
+        .row {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useEffect, useMemo, useState } = React;
+
+      function App() {
+        const [status, setStatus] = useState(null);
+        const [students, setStudents] = useState([]);
+        const [attendance, setAttendance] = useState([]);
+        const [usn, setUsn] = useState("");
+        const [activeUsn, setActiveUsn] = useState("");
+        const [message, setMessage] = useState("");
+        const [videoKey, setVideoKey] = useState(Date.now());
+
+        const attendanceRunning = Boolean(status?.attendanceRunning);
+        const cameraEnabled = status?.cameraEnabled !== false;
+        const trainingRunning = Boolean(status?.training?.running);
+
+        async function api(path, options = {}) {
+          const response = await fetch(path, {
+            headers: { "Content-Type": "application/json" },
+            ...options,
+          });
+          const data = await response.json();
+          if (!response.ok || data.ok === false) {
+            throw new Error(data.error || "Request failed");
+          }
+          return data;
+        }
+
+        async function refresh() {
+          const [statusData, attendanceData] = await Promise.all([
+            api("/api/status"),
+            api("/api/attendance"),
+          ]);
+          setStatus(statusData);
+          setStudents(statusData.students || []);
+          setAttendance(attendanceData.rows || []);
+          if (!activeUsn && statusData.students?.[0]) {
+            setActiveUsn(statusData.students[0].usn);
+          }
+        }
+
+        useEffect(() => {
+          refresh().catch((error) => setMessage(error.message));
+          const timer = setInterval(() => {
+            refresh().catch(() => {});
+          }, 2500);
+          return () => clearInterval(timer);
+        }, []);
+
+        async function createStudent() {
+          setMessage("");
+          const data = await api("/api/students", {
+            method: "POST",
+            body: JSON.stringify({ usn }),
+          });
+          setStudents((prev) => [...prev, data.student].sort((a, b) => a.usn.localeCompare(b.usn)));
+          setActiveUsn(data.student.usn);
+          setUsn("");
+          setMessage(`Created ${data.student.usn}`);
+        }
+
+        async function capturePhoto() {
+          setMessage("");
+          const data = await api(`/api/students/${encodeURIComponent(activeUsn)}/capture`, {
+            method: "POST",
+          });
+          setStudents(data.students || []);
+          setMessage(`Captured photo for ${activeUsn}`);
+        }
+
+        async function train() {
+          setMessage("");
+          const data = await api("/api/train", { method: "POST" });
+          setStatus((prev) => ({ ...prev, training: data.training }));
+          setMessage("Training started");
+        }
+
+        async function toggleAttendance() {
+          setMessage("");
+          const path = attendanceRunning ? "/api/attendance/stop" : "/api/attendance/start";
+          const data = await api(path, { method: "POST" });
+          setStatus((prev) => ({
+            ...prev,
+            attendanceRunning: data.attendanceRunning,
+            cameraEnabled: data.attendanceRunning ? true : prev?.cameraEnabled,
+          }));
+          setVideoKey(Date.now());
+          setMessage(data.attendanceRunning ? "Attendance capture started" : "Attendance capture stopped");
+        }
+
+        async function toggleCamera() {
+          setMessage("");
+          const path = cameraEnabled ? "/api/camera/stop" : "/api/camera/start";
+          const data = await api(path, { method: "POST" });
+          setStatus((prev) => ({
+            ...prev,
+            attendanceRunning: data.attendanceRunning ?? prev?.attendanceRunning ?? false,
+            cameraEnabled: data.cameraEnabled,
+            cameraRunning: data.cameraRunning,
+          }));
+          setVideoKey(Date.now());
+          setMessage(data.cameraEnabled ? "Camera started" : "Camera stopped");
+        }
+
+        async function clearRegister() {
+          if (!window.confirm("Clear all attendance entries from entry_log.csv?")) {
+            return;
+          }
+          setMessage("");
+          const data = await api("/api/attendance", { method: "DELETE" });
+          setAttendance(data.rows || []);
+          setStatus((prev) => ({ ...prev, attendanceCount: 0 }));
+          setMessage("Attendance register cleared");
+        }
+
+        const activeStudent = useMemo(
+          () => students.find((student) => student.usn === activeUsn),
+          [students, activeUsn]
+        );
+
+        return (
+          <main className="app">
+            <header className="topbar">
+              <div className="brand">
+                <h1>Attendance Logger</h1>
+                <span>Face recognition classroom register</span>
+              </div>
+              <div className="status">
+                <span className={`dot ${attendanceRunning ? "live" : ""}`}></span>
+                <span>{attendanceRunning ? "Attendance running" : "Attendance stopped"}</span>
+              </div>
+            </header>
+
+            <section className="layout">
+              <div className="video-panel">
+                <div className="video-wrap">
+                  {cameraEnabled && <img key={videoKey} src={`/api/video?t=${videoKey}`} alt="Camera feed" />}
+                  <div className="video-empty">{cameraEnabled ? "Camera feed" : "Camera stopped"}</div>
+                </div>
+                <div className="toolbar">
+                  <div className="message">{message || status?.training?.message || "Idle"}</div>
+                  <div className="toolbar-actions">
+                    <button onClick={toggleAttendance} disabled={!cameraEnabled && attendanceRunning}>
+                      {attendanceRunning ? "Stop Attendance" : "Start Attendance"}
+                    </button>
+                    <button className="secondary" onClick={toggleCamera}>
+                      {cameraEnabled ? "Stop Camera" : "Start Camera"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="side">
+                <section className="panel">
+                  <div className="panel-head">
+                    <h2>Students</h2>
+                    <span className="muted">{students.length}</span>
+                  </div>
+                  <div className="panel-body">
+                    <div className="row">
+                      <input
+                        value={usn}
+                        onChange={(event) => setUsn(event.target.value)}
+                        placeholder="USN"
+                      />
+                      <button onClick={createStudent} disabled={!usn.trim()}>Add</button>
+                    </div>
+                    <div className="row">
+                      <select
+                        value={activeUsn}
+                        onChange={(event) => setActiveUsn(event.target.value)}
+                        style={{ minHeight: 40, flex: 1, borderRadius: 6, border: "1px solid #c9d3e2", padding: "0 10px" }}
+                      >
+                        <option value="">Select student</option>
+                        {students.map((student) => (
+                          <option key={student.usn} value={student.usn}>{student.usn}</option>
+                        ))}
+                      </select>
+                      <button className="secondary" onClick={capturePhoto} disabled={!activeUsn}>Capture</button>
+                    </div>
+                    <button onClick={train} disabled={trainingRunning || students.length === 0}>
+                      {trainingRunning ? "Training..." : "Train Photos"}
+                    </button>
+                    <div className="student-list">
+                      {students.map((student) => (
+                        <div
+                          className="item"
+                          key={student.usn}
+                          onClick={() => setActiveUsn(student.usn)}
+                          style={{ borderColor: student.usn === activeUsn ? "#1f6feb" : "#e2e8f0" }}
+                        >
+                          <strong>{student.usn}</strong>
+                          <span className="muted">{student.images} photos</span>
+                        </div>
+                      ))}
+                      {students.length === 0 && <div className="muted">No students</div>}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="panel">
+                  <div className="panel-head">
+                    <h2>Attendance</h2>
+                    <div className="panel-actions">
+                      <button className="secondary" onClick={refresh}>Refresh</button>
+                      <button className="danger" onClick={clearRegister} disabled={attendance.length === 0}>
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="panel-body attendance-list">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>USN</th>
+                          <th>Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendance.slice().reverse().map((row, index) => (
+                          <tr key={`${row.usn}-${row.time}-${index}`}>
+                            <td>{row.usn}</td>
+                            <td>{row.time}</td>
+                          </tr>
+                        ))}
+                        {attendance.length === 0 && (
+                          <tr>
+                            <td colSpan="2" className="muted">No attendance yet</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </aside>
+            </section>
+          </main>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>

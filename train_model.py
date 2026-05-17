@@ -1,53 +1,55 @@
 #! /usr/bin/python
 
-# import the necessary packages
-from imutils import paths
-import face_recognition
-#import argparse
-import pickle
-import cv2
 import os
+import pickle
+
+import cv2
+import face_recognition
+from imutils import paths
+
 
 def train_photo():
+    print("[INFO] start processing faces...")
+    image_paths = list(paths.list_images("dataset"))
 
-	# our images are located in the dataset folder
-	print("[INFO] start processing faces...")
-	imagePaths = list(paths.list_images("dataset"))
+    known_encodings = []
+    known_names = []
+    skipped = []
 
-	# initialize the list of known encodings and known names
-	knownEncodings = []
-	knownNames = []
+    for index, image_path in enumerate(image_paths):
+        print("[INFO] processing image {}/{}".format(index + 1, len(image_paths)))
+        name = image_path.split(os.path.sep)[-2]
 
-	# loop over the image paths
-	for (i, imagePath) in enumerate(imagePaths):
-		# extract the person name from the image path
-		print("[INFO] processing image {}/{}".format(i + 1,
-			len(imagePaths)))
-		name = imagePath.split(os.path.sep)[-2]
+        image = cv2.imread(image_path)
+        if image is None:
+            skipped.append((image_path, "image_not_readable"))
+            continue
 
-		# load the input image and convert it from RGB (OpenCV ordering)
-		# to dlib ordering (RGB)
-		image = cv2.imread(imagePath)
-		rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        boxes = face_recognition.face_locations(rgb, model="hog")
 
-		# detect the (x, y)-coordinates of the bounding boxes
-		# corresponding to each face in the input image
-		boxes = face_recognition.face_locations(rgb,
-			model="hog")
+        if len(boxes) != 1:
+            skipped.append((image_path, f"faces_found_{len(boxes)}"))
+            continue
 
-		# compute the facial embedding for the face
-		encodings = face_recognition.face_encodings(rgb, boxes)
+        encodings = face_recognition.face_encodings(rgb, boxes)
+        if not encodings:
+            skipped.append((image_path, "encoding_failed"))
+            continue
 
-		# loop over the encodings
-		for encoding in encodings:
-			# add each encoding + name to our set of known names and
-			# encodings
-			knownEncodings.append(encoding)
-			knownNames.append(name)
+        known_encodings.append(encodings[0])
+        known_names.append(name)
 
-	# dump the facial encodings + names to disk
-	print("[INFO] serializing encodings...")
-	data = {"encodings": knownEncodings, "names": knownNames}
-	f = open("encodings.pickle", "wb")
-	f.write(pickle.dumps(data))
-	f.close()
+    if not known_encodings:
+        raise RuntimeError("No valid training images found. Capture clear single-face photos first.")
+
+    print("[INFO] serializing encodings...")
+    data = {"encodings": known_encodings, "names": known_names}
+    with open("encodings.pickle", "wb") as file:
+        file.write(pickle.dumps(data))
+
+    print(f"[INFO] trained {len(known_encodings)} images for {len(set(known_names))} students")
+    if skipped:
+        print(f"[WARN] skipped {len(skipped)} images:")
+        for image_path, reason in skipped:
+            print(f"  - {image_path}: {reason}")
