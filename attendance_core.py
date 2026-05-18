@@ -239,10 +239,22 @@ class Camera:
             use_pi_camera = os.getenv("USE_PI_CAMERA", "0") == "1"
             self.camera_type = None
             if use_pi_camera and Picamera2 is not None:
-                camera = Picamera2()
-                config = camera.create_preview_configuration(main={"format": "RGB888", "size": (640, 480)})
-                camera.configure(config)
-                camera.start()
+                try:
+                    camera = Picamera2()
+                except Exception as exc:
+                    raise RuntimeError(f"Picamera2 initialization failed: {exc}") from exc
+
+                try:
+                    config = camera.create_preview_configuration(main={"format": "RGB888", "size": (640, 480)})
+                    camera.configure(config)
+                    camera.start()
+                except Exception as exc:
+                    try:
+                        camera.close()
+                    except Exception:
+                        pass
+                    raise RuntimeError(f"Picamera2 configuration/start failed: {exc}") from exc
+
                 self.camera_type = "picamera2"
                 self.camera = camera
                 return
