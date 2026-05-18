@@ -15,6 +15,15 @@ except Exception as exc:
     Picamera2 = None
     PICAMERA2_IMPORT_ERROR = str(exc)
 
+try:
+    from picamera import PiCamera
+    from picamera.array import PiRGBArray
+    PICAMERA_IMPORT_ERROR = None
+except Exception as exc:
+    PiCamera = None
+    PiRGBArray = None
+    PICAMERA_IMPORT_ERROR = str(exc)
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASET_DIR = os.path.join(BASE_DIR, "dataset")
@@ -230,6 +239,7 @@ class Camera:
         self.lock = threading.RLock()
         self.camera_type = None
         self.camera = None
+        self.raw_capture = None
 
     def open(self):
         with self.lock:
@@ -237,7 +247,20 @@ class Camera:
                 return
 
             use_pi_camera = os.getenv("USE_PI_CAMERA", "0") == "1"
+            use_legacy_pi_camera = os.getenv("USE_LEGACY_PI_CAMERA", "0") == "1"
             self.camera_type = None
+            self.raw_capture = None
+            if use_legacy_pi_camera and PiCamera is not None:
+                camera = PiCamera()
+                camera.resolution = (640, 480)
+                camera.framerate = 10
+                self.raw_capture = PiRGBArray(camera, size=(640, 480))
+                self.camera_type = "picamera"
+                self.camera = camera
+                return
+            if use_legacy_pi_camera and PiCamera is None:
+                raise RuntimeError(f"USE_LEGACY_PI_CAMERA=1 but picamera is not installed/importable: {PICAMERA_IMPORT_ERROR}")
+
             if use_pi_camera and Picamera2 is not None:
                 try:
                     camera = Picamera2()
@@ -277,6 +300,12 @@ class Camera:
             if self.camera_type == "picamera2":
                 frame = self.camera.capture_array()
                 return True, normalize_frame(frame, source_format="rgb")
+            if self.camera_type == "picamera":
+                self.raw_capture.truncate(0)
+                self.camera.capture(self.raw_capture, format="bgr", use_video_port=True)
+                frame = self.raw_capture.array
+                self.raw_capture.truncate(0)
+                return True, normalize_frame(frame, source_format="bgr")
             ret, frame = self.camera.read()
             if ret:
                 frame = normalize_frame(frame, source_format="bgr")
@@ -288,10 +317,13 @@ class Camera:
                 return
             if self.camera_type == "picamera2":
                 self.camera.close()
+            elif self.camera_type == "picamera":
+                self.camera.close()
             else:
                 self.camera.release()
             self.camera = None
             self.camera_type = None
+            self.raw_capture = None
 
     def is_open(self):
         with self.lock:
@@ -303,8 +335,11 @@ class Camera:
                 "cameraType": self.camera_type,
                 "isOpen": self.camera is not None,
                 "usePiCamera": os.getenv("USE_PI_CAMERA", "0") == "1",
+                "useLegacyPiCamera": os.getenv("USE_LEGACY_PI_CAMERA", "0") == "1",
                 "picamera2Importable": Picamera2 is not None,
                 "picamera2ImportError": PICAMERA2_IMPORT_ERROR,
+                "picameraImportable": PiCamera is not None,
+                "picameraImportError": PICAMERA_IMPORT_ERROR,
             }
             if open_camera and self.camera is None:
                 try:
