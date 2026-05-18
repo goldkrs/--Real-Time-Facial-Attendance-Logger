@@ -48,6 +48,12 @@ def normalize_frame(frame, source_format="bgr"):
     return np.ascontiguousarray(frame)
 
 
+def bgr_to_face_rgb(frame):
+    frame = normalize_frame(frame, source_format="bgr")
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    return np.ascontiguousarray(rgb, dtype=np.uint8)
+
+
 def ensure_log_file():
     if not os.path.exists(ENTRY_LOG_PATH):
         open(ENTRY_LOG_PATH, "a", newline="").close()
@@ -131,7 +137,7 @@ class AttendanceRecognizer:
     def process_frame(self, frame, log_matches=False):
         data = self._data()
         small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+        rgb_small_frame = bgr_to_face_rgb(small_frame)
 
         boxes = face_recognition.face_locations(rgb_small_frame, model="hog")
         encodings = face_recognition.face_encodings(rgb_small_frame, boxes)
@@ -286,7 +292,8 @@ def save_student_frame(usn, frame):
     if not os.path.isdir(student_dir):
         raise FileNotFoundError("Create the student before capturing photos.")
 
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame = normalize_frame(frame, source_format="bgr")
+    rgb = bgr_to_face_rgb(frame)
     boxes = face_recognition.face_locations(rgb, model="hog")
     if len(boxes) != 1:
         raise ValueError(f"Expected exactly one face in the frame, found {len(boxes)}.")
