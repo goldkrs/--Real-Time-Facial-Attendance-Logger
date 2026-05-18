@@ -7,6 +7,7 @@ from datetime import datetime
 import cv2
 import face_recognition
 import numpy as np
+from PIL import Image
 
 try:
     from picamera2 import Picamera2
@@ -62,7 +63,8 @@ def normalize_frame(frame, source_format="bgr"):
 def bgr_to_face_rgb(frame):
     frame = normalize_frame(frame, source_format="bgr")
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return np.ascontiguousarray(rgb.copy(), dtype=np.uint8)
+    rgb = Image.fromarray(rgb, mode="RGB")
+    return np.asarray(rgb, dtype=np.uint8).copy(order="C")
 
 
 def describe_array(frame):
@@ -76,7 +78,8 @@ def describe_array(frame):
 
 
 def face_locations(rgb, context):
-    rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
+    rgb = Image.fromarray(np.asarray(rgb, dtype=np.uint8), mode="RGB")
+    rgb = np.asarray(rgb, dtype=np.uint8).copy(order="C")
     if not (len(rgb.shape) == 3 and rgb.shape[2] == 3):
         raise ValueError(f"{context}: face image is not RGB: {describe_array(rgb)}")
     try:
@@ -86,7 +89,8 @@ def face_locations(rgb, context):
 
 
 def face_encodings(rgb, boxes, context):
-    rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
+    rgb = Image.fromarray(np.asarray(rgb, dtype=np.uint8), mode="RGB")
+    rgb = np.asarray(rgb, dtype=np.uint8).copy(order="C")
     try:
         return face_recognition.face_encodings(rgb, boxes)
     except Exception as exc:
