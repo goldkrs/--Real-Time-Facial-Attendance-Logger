@@ -10,8 +10,10 @@ import numpy as np
 
 try:
     from picamera2 import Picamera2
-except Exception:
+    PICAMERA2_IMPORT_ERROR = None
+except Exception as exc:
     Picamera2 = None
+    PICAMERA2_IMPORT_ERROR = str(exc)
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -283,14 +285,23 @@ class Camera:
         with self.lock:
             return self.camera is not None
 
-    def debug_info(self):
+    def debug_info(self, open_camera=False):
         with self.lock:
             info = {
                 "cameraType": self.camera_type,
                 "isOpen": self.camera is not None,
                 "usePiCamera": os.getenv("USE_PI_CAMERA", "0") == "1",
                 "picamera2Importable": Picamera2 is not None,
+                "picamera2ImportError": PICAMERA2_IMPORT_ERROR,
             }
+            if open_camera and self.camera is None:
+                try:
+                    self.open()
+                except Exception as exc:
+                    info["openError"] = str(exc)
+                info["cameraType"] = self.camera_type
+                info["isOpen"] = self.camera is not None
+
             if self.camera is not None:
                 try:
                     ret, frame = self.read()
