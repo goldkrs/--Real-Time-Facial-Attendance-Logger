@@ -250,17 +250,6 @@ class Camera:
             use_legacy_pi_camera = os.getenv("USE_LEGACY_PI_CAMERA", "0") == "1"
             self.camera_type = None
             self.raw_capture = None
-            if use_legacy_pi_camera and PiCamera is not None:
-                camera = PiCamera()
-                camera.resolution = (640, 480)
-                camera.framerate = 10
-                self.raw_capture = PiRGBArray(camera, size=(640, 480))
-                self.camera_type = "picamera"
-                self.camera = camera
-                return
-            if use_legacy_pi_camera and PiCamera is None:
-                raise RuntimeError(f"USE_LEGACY_PI_CAMERA=1 but picamera is not installed/importable: {PICAMERA_IMPORT_ERROR}")
-
             if use_pi_camera and Picamera2 is not None:
                 try:
                     camera = Picamera2()
@@ -283,6 +272,17 @@ class Camera:
                 return
             if use_pi_camera and Picamera2 is None:
                 raise RuntimeError("USE_PI_CAMERA=1 but picamera2 is not installed/importable.")
+
+            if use_legacy_pi_camera and PiCamera is not None:
+                camera = PiCamera()
+                camera.resolution = (640, 480)
+                camera.framerate = 10
+                self.raw_capture = PiRGBArray(camera, size=(640, 480))
+                self.camera_type = "picamera"
+                self.camera = camera
+                return
+            if use_legacy_pi_camera and PiCamera is None:
+                raise RuntimeError(f"USE_LEGACY_PI_CAMERA=1 but picamera is not installed/importable: {PICAMERA_IMPORT_ERROR}")
 
             camera = cv2.VideoCapture(0)
             if not camera.isOpened():
