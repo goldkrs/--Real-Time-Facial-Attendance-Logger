@@ -6,6 +6,7 @@ from datetime import datetime
 
 import cv2
 import face_recognition
+import numpy as np
 
 try:
     from picamera2 import Picamera2
@@ -22,6 +23,29 @@ MATCH_TOLERANCE = float(os.getenv("FACE_MATCH_TOLERANCE", "0.48"))
 MATCH_MARGIN = float(os.getenv("FACE_MATCH_MARGIN", "0.06"))
 COOLDOWN_SECONDS = int(os.getenv("ATTENDANCE_COOLDOWN_SECONDS", "10"))
 REQUIRED_CONFIRMATIONS = int(os.getenv("FACE_REQUIRED_CONFIRMATIONS", "2"))
+
+
+def normalize_frame(frame, source_format="bgr"):
+    if frame is None:
+        raise ValueError("Camera returned an empty frame.")
+
+    if frame.dtype != np.uint8:
+        frame = frame.astype(np.uint8)
+
+    if len(frame.shape) == 2:
+        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+    elif len(frame.shape) == 3 and frame.shape[2] == 4:
+        if source_format == "rgb":
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+        else:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+    elif len(frame.shape) == 3 and frame.shape[2] == 3:
+        if source_format == "rgb":
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    else:
+        raise ValueError(f"Unsupported camera frame shape: {frame.shape}")
+
+    return np.ascontiguousarray(frame)
 
 
 def ensure_log_file():
@@ -179,7 +203,7 @@ class Camera:
             use_pi_camera = os.getenv("USE_PI_CAMERA", "0") == "1"
             if use_pi_camera and Picamera2 is not None:
                 camera = Picamera2()
-                config = camera.create_preview_configuration({"format": "RGB888", "size": (640, 480)})
+                config = camera.create_preview_configuration(main={"format": "RGB888", "size": (640, 480)})
                 camera.configure(config)
                 camera.start()
                 self.camera_type = "picamera2"
@@ -201,8 +225,11 @@ class Camera:
                 self.open()
             if self.camera_type == "picamera2":
                 frame = self.camera.capture_array()
-                return True, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            return self.camera.read()
+                return True, normalize_frame(frame, source_format="rgb")
+            ret, frame = self.camera.read()
+            if ret:
+                frame = normalize_frame(frame, source_format="bgr")
+            return ret, frame
 
     def close(self):
         with self.lock:
