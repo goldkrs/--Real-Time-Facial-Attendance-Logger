@@ -60,7 +60,8 @@ def status():
 @app.get("/api/debug/camera")
 def debug_camera():
     open_camera = request.args.get("open") == "1"
-    return jsonify({"ok": True, "camera": camera.debug_info(open_camera=open_camera)})
+    close_camera = request.args.get("close") == "1"
+    return jsonify({"ok": True, "camera": camera.debug_info(open_camera=open_camera, close_camera=close_camera)})
 
 
 @app.get("/api/attendance")

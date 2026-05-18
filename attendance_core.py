@@ -329,8 +329,11 @@ class Camera:
         with self.lock:
             return self.camera is not None
 
-    def debug_info(self, open_camera=False):
+    def debug_info(self, open_camera=False, close_camera=False):
         with self.lock:
+            if close_camera:
+                self.close()
+
             info = {
                 "cameraType": self.camera_type,
                 "isOpen": self.camera is not None,
