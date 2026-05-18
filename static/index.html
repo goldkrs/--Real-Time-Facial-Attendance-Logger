@@ -356,11 +356,16 @@
 
         async function capturePhoto() {
           setMessage("");
-          const data = await api(`/api/students/${encodeURIComponent(activeUsn)}/capture`, {
-            method: "POST",
-          });
-          setStudents(data.students || []);
-          setMessage(`Captured photo for ${activeUsn}`);
+          try {
+            const data = await api(`/api/students/${encodeURIComponent(activeUsn)}/capture`, {
+              method: "POST",
+            });
+            setStudents(data.students || []);
+            setMessage(`Captured photo for ${activeUsn}`);
+          } catch (error) {
+            setMessage(error.message);
+            console.error(error);
+          }
         }
 
         async function train() {

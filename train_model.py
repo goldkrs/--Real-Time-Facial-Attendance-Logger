@@ -4,8 +4,9 @@ import os
 import pickle
 
 import cv2
-import face_recognition
 from imutils import paths
+
+from attendance_core import bgr_to_face_rgb, face_encodings, face_locations
 
 
 def train_photo():
@@ -25,14 +26,14 @@ def train_photo():
             skipped.append((image_path, "image_not_readable"))
             continue
 
-        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        boxes = face_recognition.face_locations(rgb, model="hog")
+        rgb = bgr_to_face_rgb(image)
+        boxes = face_locations(rgb, "training")
 
         if len(boxes) != 1:
             skipped.append((image_path, f"faces_found_{len(boxes)}"))
             continue
 
-        encodings = face_recognition.face_encodings(rgb, boxes)
+        encodings = face_encodings(rgb, boxes, "training")
         if not encodings:
             skipped.append((image_path, "encoding_failed"))
             continue

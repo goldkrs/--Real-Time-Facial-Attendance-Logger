@@ -51,7 +51,35 @@ def normalize_frame(frame, source_format="bgr"):
 def bgr_to_face_rgb(frame):
     frame = normalize_frame(frame, source_format="bgr")
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return np.ascontiguousarray(rgb, dtype=np.uint8)
+    return np.ascontiguousarray(rgb.copy(), dtype=np.uint8)
+
+
+def describe_array(frame):
+    if frame is None:
+        return "None"
+    return (
+        f"shape={getattr(frame, 'shape', None)}, "
+        f"dtype={getattr(frame, 'dtype', None)}, "
+        f"contiguous={frame.flags['C_CONTIGUOUS'] if hasattr(frame, 'flags') else None}"
+    )
+
+
+def face_locations(rgb, context):
+    rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
+    if not (len(rgb.shape) == 3 and rgb.shape[2] == 3):
+        raise ValueError(f"{context}: face image is not RGB: {describe_array(rgb)}")
+    try:
+        return face_recognition.face_locations(rgb, model="hog")
+    except Exception as exc:
+        raise RuntimeError(f"{context}: {exc}. Face input: {describe_array(rgb)}") from exc
+
+
+def face_encodings(rgb, boxes, context):
+    rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
+    try:
+        return face_recognition.face_encodings(rgb, boxes)
+    except Exception as exc:
+        raise RuntimeError(f"{context}: {exc}. Face input: {describe_array(rgb)}") from exc
 
 
 def ensure_log_file():
@@ -139,8 +167,8 @@ class AttendanceRecognizer:
         small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
         rgb_small_frame = bgr_to_face_rgb(small_frame)
 
-        boxes = face_recognition.face_locations(rgb_small_frame, model="hog")
-        encodings = face_recognition.face_encodings(rgb_small_frame, boxes)
+        boxes = face_locations(rgb_small_frame, "attendance recognition")
+        encodings = face_encodings(rgb_small_frame, boxes, "attendance recognition")
         results = []
         now = datetime.now()
 
@@ -207,6 +235,7 @@ class Camera:
                 return
 
             use_pi_camera = os.getenv("USE_PI_CAMERA", "0") == "1"
+            self.camera_type = None
             if use_pi_camera and Picamera2 is not None:
                 camera = Picamera2()
                 config = camera.create_preview_configuration(main={"format": "RGB888", "size": (640, 480)})
@@ -215,6 +244,8 @@ class Camera:
                 self.camera_type = "picamera2"
                 self.camera = camera
                 return
+            if use_pi_camera and Picamera2 is None:
+                raise RuntimeError("USE_PI_CAMERA=1 but picamera2 is not installed/importable.")
 
             camera = cv2.VideoCapture(0)
             if not camera.isOpened():
@@ -251,6 +282,24 @@ class Camera:
     def is_open(self):
         with self.lock:
             return self.camera is not None
+
+    def debug_info(self):
+        with self.lock:
+            info = {
+                "cameraType": self.camera_type,
+                "isOpen": self.camera is not None,
+                "usePiCamera": os.getenv("USE_PI_CAMERA", "0") == "1",
+                "picamera2Importable": Picamera2 is not None,
+            }
+            if self.camera is not None:
+                try:
+                    ret, frame = self.read()
+                    info["readOk"] = ret
+                    info["frame"] = describe_array(frame)
+                    info["faceRgb"] = describe_array(bgr_to_face_rgb(frame)) if ret else None
+                except Exception as exc:
+                    info["readError"] = str(exc)
+            return info
 
 
 def encode_jpeg(frame):
@@ -294,7 +343,7 @@ def save_student_frame(usn, frame):
 
     frame = normalize_frame(frame, source_format="bgr")
     rgb = bgr_to_face_rgb(frame)
-    boxes = face_recognition.face_locations(rgb, model="hog")
+    boxes = face_locations(rgb, "student photo capture")
     if len(boxes) != 1:
         raise ValueError(f"Expected exactly one face in the frame, found {len(boxes)}.")
 

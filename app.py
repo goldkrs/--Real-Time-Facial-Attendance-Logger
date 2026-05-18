@@ -57,6 +57,11 @@ def status():
     )
 
 
+@app.get("/api/debug/camera")
+def debug_camera():
+    return jsonify({"ok": True, "camera": camera.debug_info()})
+
+
 @app.get("/api/attendance")
 def attendance():
     return jsonify({"ok": True, "rows": read_attendance()})
@@ -96,6 +101,7 @@ def capture_student(usn):
         image_path = save_student_frame(usn, frame)
         return jsonify({"ok": True, "image": image_path, "students": list_students()})
     except Exception as exc:
+        app.logger.exception("Failed to capture student photo")
         return api_error(exc)
 
 
